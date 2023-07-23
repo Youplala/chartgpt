@@ -1,0 +1,2 @@
+chartgpt>=0.0.5
+dash-ag-grid>=2.2.0
