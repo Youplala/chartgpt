@@ -19,7 +19,7 @@ app = dash.Dash(
     assets_folder="assets",
     include_assets_files=True,
 )
-application = app.server
+server = app.server
 
 
 body = dmc.Stack(
@@ -237,8 +237,6 @@ socials = dmc.Affix(
             ),
         ],
         spacing="sm",
-        mt=5,
-        mr=5,
     ),
     position={"top": 10, "left": 10},
 )
@@ -462,11 +460,9 @@ def update_stepper_buttons(current, api_key, data):
 )
 def update_graph(n_clicks, active, api_key, df, prompt, prompt_retry):
     if n_clicks is not None and active == 2:
-        output = predict(api_key, df, prompt)
-        return prompt, output
+        return prompt, predict(api_key, df, prompt)
     elif n_clicks is not None and active == 3:
-        output = predict(api_key, df, prompt_retry)
-        return prompt_retry, output
+        return prompt_retry, predict(api_key, df, prompt_retry)
     return no_update
 
 
