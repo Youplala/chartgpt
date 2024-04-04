@@ -224,7 +224,7 @@ socials = dmc.Affix(
             dmc.ActionIcon(
                 html.A(
                     DashIconify(icon="mdi:github", width=25),
-                    href="https://github.com/youplala/chartgpt",
+                    href="https://github.com/chatgpt/chart",
                     style={"color": "black"},
                 ),
             ),
@@ -284,6 +284,14 @@ page = [
                 [
                     socials,
                     header,
+                    dmc.Alert(
+                        "",
+                        title="Error",
+                        id="alert-error",
+                        color="red",
+                        withCloseButton=True,
+                        hide=True
+                    ),
                     body,
                 ]
             ),
@@ -450,6 +458,8 @@ def update_stepper_buttons(current, api_key, data):
 @app.callback(
     Output("input-text-retry", "value"),
     Output("output-card", "children"),
+    Output("alert-error", "hide"),
+    Output("alert-error", "children"),
     Input("stepper-next", "n_clicks"),
     State("stepper", "active"),
     State("input-api-key", "value"),
@@ -460,9 +470,15 @@ def update_stepper_buttons(current, api_key, data):
 )
 def update_graph(n_clicks, active, api_key, df, prompt, prompt_retry):
     if n_clicks is not None and active == 2:
-        return prompt, predict(api_key, df, prompt)
+        try:
+            return prompt, predict(api_key, df, prompt), True, ""
+        except Exception as e:
+            return no_update, no_update, False, str(e)
     elif n_clicks is not None and active == 3:
-        return prompt_retry, predict(api_key, df, prompt_retry)
+        try:
+            return prompt_retry, predict(api_key, df, prompt_retry), True, ""
+        except Exception as e:
+            return no_update, no_update, False, str(e)
     return no_update
 
 
@@ -475,4 +491,4 @@ def predict(api_key, df, prompt):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server()
