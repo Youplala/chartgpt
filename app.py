@@ -32,61 +32,6 @@ body = dmc.Stack(
             breakpoint="sm",
             children=[
                 dmc.StepperStep(
-                    label="Add your OpenAI API key",
-                    icon=DashIconify(
-                        icon="material-symbols:lock",
-                    ),
-                    progressIcon=DashIconify(
-                        icon="material-symbols:lock",
-                    ),
-                    completedIcon=DashIconify(
-                        icon="material-symbols:lock-open",
-                    ),
-                    children=[
-                        dmc.Stack(
-                            [
-                                dmc.Stack(
-                                    [
-                                        dmc.Blockquote(
-                                            """Welcome to ChartGPT! To get started, fetch your OpenAI API key and paste it below.\
-                                            Then, upload your CSV file and ask ChartGPT to plot your data. Happy charting 🥳""",
-                                            icon=DashIconify(
-                                                icon="line-md:coffee-half-empty-twotone-loop"
-                                            ),
-                                        ),
-                                        dmc.Center(
-                                            dmc.Button(
-                                                dmc.Anchor(
-                                                    "Get your API key",
-                                                    href="https://platform.openai.com/account/api-keys",
-                                                    target="_blank",
-                                                    style={
-                                                        "textDecoration": "none",
-                                                        "color": "white",
-                                                    },
-                                                ),
-                                                fullWidth=False,
-                                                rightIcon=DashIconify(
-                                                    icon="material-symbols:open-in-new"
-                                                ),
-                                            ),
-                                        ),
-                                    ],
-                                ),
-                                dmc.PasswordInput(
-                                    id="input-api-key",
-                                    label="API Key",
-                                    description="Please add your OpenAI API key. It will be used to generate your visualization",
-                                    placeholder="Your OpenAI API Key",
-                                    icon=DashIconify(icon="material-symbols:key"),
-                                    size="sm",
-                                    required=True,
-                                ),
-                            ]
-                        )
-                    ],
-                ),
-                dmc.StepperStep(
                     label="Upload your CSV file",
                     icon=DashIconify(icon="material-symbols:upload"),
                     progressIcon=DashIconify(icon="material-symbols:upload"),
@@ -352,7 +297,7 @@ def store_data(contents, filename):
 )
 def load_data(dataset):
     if dataset is not None:
-        df = pd.read_json(dataset, orient="split")
+        df = pd.read_json(io.StringIO(dataset), orient="split")
         table_preview = dag.AgGrid(
             id="data-preview",
             rowData=df.to_dict("records"),
@@ -401,7 +346,7 @@ def load_data(dataset):
 def update_stepper(stepper_next, stepper_back, current):
     ctx = dash.callback_context
     id_clicked = ctx.triggered[0]["prop_id"]
-    if id_clicked == "stepper-next.n_clicks" and current < 3:
+    if id_clicked == "stepper-next.n_clicks" and current < 2:
         return current + 1
     elif id_clicked == "stepper-back.n_clicks":
         return current - 1
@@ -416,15 +361,10 @@ def update_stepper(stepper_next, stepper_back, current):
     Output("stepper-next", "children"),
     Output("icon-next", "icon"),
     Input("stepper", "active"),
-    Input("input-api-key", "value"),
     Input("dataset-store", "data"),
 )
-def update_stepper_buttons(current, api_key, data):
-    if current == 0 and api_key != "":
-        return False, True, "block", "none", "Next", "ic:round-arrow-forward"
-    elif current == 0 and api_key == "":
-        return True, True, "block", "none", "Next", "ic:round-arrow-forward"
-    elif current == 1 and data is not None:
+def update_stepper_buttons(current, data):
+    if current == 0 and data is not None:
         return (
             False,
             False,
@@ -433,7 +373,7 @@ def update_stepper_buttons(current, api_key, data):
             "Next",
             "ic:round-arrow-forward",
         )
-    elif current == 1 and data is None:
+    elif current == 0 and data is None:
         return (
             True,
             False,
@@ -442,7 +382,7 @@ def update_stepper_buttons(current, api_key, data):
             "Next",
             "ic:round-arrow-forward",
         )
-    elif current == 2:
+    elif current == 1:
         return (
             False,
             False,
@@ -451,7 +391,7 @@ def update_stepper_buttons(current, api_key, data):
             "Ask ChartGPT",
             "ph:flask-bold",
         )
-    elif current == 3:
+    elif current == 2:
         return (False, False, "block", "block", "Ask again", "ic:refresh")
 
 
@@ -462,29 +402,28 @@ def update_stepper_buttons(current, api_key, data):
     Output("alert-error", "children"),
     Input("stepper-next", "n_clicks"),
     State("stepper", "active"),
-    State("input-api-key", "value"),
     State("dataset-store", "data"),
     State("input-text", "value"),
     State("input-text-retry", "value"),
     prevent_initial_call=True,
 )
-def update_graph(n_clicks, active, api_key, df, prompt, prompt_retry):
-    if n_clicks is not None and active == 2:
+def update_graph(n_clicks, active, df, prompt, prompt_retry):
+    if n_clicks is not None and active == 1:
         try:
-            return prompt, predict(api_key, df, prompt), True, ""
+            return prompt, predict(df, prompt), True, ""
         except Exception as e:
             return no_update, no_update, False, str(e)
-    elif n_clicks is not None and active == 3:
+    elif n_clicks is not None and active == 2:
         try:
-            return prompt_retry, predict(api_key, df, prompt_retry), True, ""
+            return prompt_retry, predict(df, prompt_retry), True, ""
         except Exception as e:
             return no_update, no_update, False, str(e)
     return no_update
 
 
-def predict(api_key, df, prompt):
+def predict(df, prompt):
     df = pd.read_json(df, orient="split")
-    chart = cg.Chart(df, api_key=api_key)
+    chart = cg.Chart(df)
     fig = chart.plot(prompt, return_fig=True)
     output = show_graph_card(graph=dcc.Graph(figure=fig), code=chart.last_run_code)
     return output
