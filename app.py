@@ -74,7 +74,7 @@ body = dmc.Stack(
                     ],
                 ),
                 dmc.StepperStep(
-                    label="Plot your data 🚀",
+                    label="Plot your data ",
                     icon=DashIconify(icon="bi:bar-chart"),
                     progressIcon=DashIconify(icon="bi:bar-chart"),
                     completedIcon=DashIconify(icon="bi:bar-chart-fill"),
@@ -152,16 +152,27 @@ body = dmc.Stack(
 header = dmc.Center(
     html.A(
         dmc.Image(
-            src="https://raw.githubusercontent.com/chatgpt/chart/9ff8b9b96f01a5ee7091ee5e69a2795381bf5031/docs/assets/chartgpt_logo.svg",
+            id="logo",
+            src="/assets/logo_light.svg",
             alt="ChartGPT Logo",
             width=300,
             m=20,
-            caption="Plot your data using GPT",
         ),
         href="https://github.com/chatgpt/chart",
         style={"textDecoration": "none"},
     )
 )
+
+theme_toggle = dmc.Switch(
+    id="theme-toggle",
+    size="lg",
+    onLabel="",
+    offLabel="",
+    checked=False,
+    mb=20,
+    style={"position": "absolute", "top": "10px", "right": "10px"},
+)
+
 
 socials = dmc.Affix(
     dmc.Stack(
@@ -225,6 +236,7 @@ page = [
     dcc.Store(id="dataset-store", storage_type="local"),
     dmc.Container(
         [
+            theme_toggle,
             dmc.Stack(
                 [
                     socials,
@@ -244,16 +256,30 @@ page = [
     ),
 ]
 
+# Define theme colors globally
+CUSTOM_COLORS = {
+    "custom": ["#FFFFFF", "#F2F2F2", "#E5E5E5", "#D9D9D9", "#BFBFBF", "#8C8C8C", "#595959", "#3D3D3D", "#1E1E1E", "#000000"],
+}
+
+LIGHT_THEME = {
+    "colorScheme": "light",
+    "primaryColor": "custom",
+    "colors": CUSTOM_COLORS,
+    "fontFamily": "'Inter', sans-serif",
+    "defaultRadius": "md",
+    "white": "#fff",
+    "black": "#1E1E1E",
+    "primaryShade": 8,  # This will make it use #1E1E1E
+}
+
+DARK_THEME = {
+    **LIGHT_THEME,
+    "colorScheme": "dark",
+}
+
 app.layout = dmc.MantineProvider(
     id="mantine-provider",
-    theme={
-        "fontFamily": "'Inter', sans-serif",
-        "colorScheme": "light",
-        "primaryColor": "dark",
-        "defaultRadius": "md",
-        "white": "#fff",
-        "black": "#404040",
-    },
+    theme=LIGHT_THEME,
     withGlobalStyles=True,
     withNormalizeCSS=True,
     children=page,
@@ -303,6 +329,8 @@ def load_data(dataset):
             rowData=df.to_dict("records"),
             style={"height": "275px"},
             columnDefs=[{"field": i} for i in df.columns],
+            dashGridOptions={"defaultColDef": {"resizable": True, "sortable": True, "filter": True}},
+            className="ag-theme-alpine",
         )
         return (
             table_preview,
@@ -396,6 +424,16 @@ def update_stepper_buttons(current, data):
 
 
 @app.callback(
+    [Output("mantine-provider", "theme"), Output("logo", "src"), Output("data-preview", "className")],
+    [Input("theme-toggle", "checked")],
+)
+def toggle_theme(is_dark_mode):
+    if is_dark_mode:
+        return DARK_THEME, "/assets/logo_light.svg", "ag-theme-alpine-dark"
+    return LIGHT_THEME, "/assets/logo_dark.svg", "ag-theme-alpine"
+
+
+@app.callback(
     Output("input-text-retry", "value"),
     Output("output-card", "children"),
     Output("alert-error", "hide"),
@@ -423,7 +461,7 @@ def update_graph(n_clicks, active, df, prompt, prompt_retry):
 
 def predict(df, prompt):
     df = pd.read_json(df, orient="split")
-    chart = cg.Chart(df)
+    chart = cg.Chart(df, model="huggingface/Qwen/Qwen2.5-Coder-32B-Instruct")
     fig = chart.plot(prompt, return_fig=True)
     output = show_graph_card(graph=dcc.Graph(figure=fig), code=chart.last_run_code)
     return output
